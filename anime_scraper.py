@@ -17,12 +17,11 @@ def scrape_anime_data(search_query=None, limit=100):
         
         anime_list = []
         page = 1
-        anime_per_page = 20  # Each page has 20 anime
+        anime_per_page = 20
         
         print(f"🎯 Scraping anime with target limit: {limit}")
         
         while len(anime_list) < limit:
-            # Construct URL for current page
             if search_query:
                 url = f"{base_url}/?s={search_query}"
                 if page > 1:
@@ -37,16 +36,14 @@ def scrape_anime_data(search_query=None, limit=100):
                 response.raise_for_status()
                 
                 soup = BeautifulSoup(response.content, 'html.parser')
-                
-                # Find the correct section structure as shown in screenshot
-                # main.content > section#postbaru > div.misha_posts_wrap > article.animeseries
+            
                 main_content = soup.find('main', class_='content')
                 if main_content:
                     postbaru_section = main_content.find('section', id='postbaru')
                     if postbaru_section:
                         misha_posts_wrap = postbaru_section.find('div', class_='misha_posts_wrap')
                         if misha_posts_wrap:
-                            # Find all anime articles with correct class pattern
+                             Find all anime articles with correct class pattern
                             anime_articles = misha_posts_wrap.find_all('article', class_=re.compile(r'animeseries post-\d+'))
                             print(f"   Found {len(anime_articles)} anime articles on page {page}")
                             
@@ -59,34 +56,28 @@ def scrape_anime_data(search_query=None, limit=100):
                                     break
                                 
                                 try:
-                                    # Find the sera div (anime image container)
                                     sera_div = article.find('div', class_='sera')
                                     if not sera_div:
                                         continue
-                                    
-                                    # Get anime title - try multiple selectors
+
                                     title = None
                                     
-                                    # Method 1: Look for entry-title in h2/h3
                                     title_element = article.find('h2', class_='entry-title') or article.find('h3', class_='entry-title')
                                     if title_element:
                                         title = title_element.get_text(strip=True)
                                     
-                                    # Method 2: Look for entry-title in anchor tags
                                     if not title:
                                         title_elem = article.find('a', class_='entry-title')
                                         if title_elem:
                                             title = title_elem.get('title') or title_elem.get_text(strip=True)
-                                    
-                                    # Method 3: Look for any anchor with title attribute
                                     if not title:
                                         title_elem = article.find('a', title=True)
                                         if title_elem:
                                             title = title_elem.get('title')
                                     
-                                    # Method 4: Look for any text that might be title
+                                     Method 4: Look for any text that might be title
                                     if not title:
-                                        # Find the first meaningful text in the article
+                                         Find the first meaningful text in the article
                                         for elem in article.find_all(['h2', 'h3', 'h4', 'a']):
                                             if elem.get_text(strip=True) and len(elem.get_text(strip=True)) > 3:
                                                 title = elem.get_text(strip=True)
@@ -95,7 +86,6 @@ def scrape_anime_data(search_query=None, limit=100):
                                     if not title:
                                         continue
                                     
-                                    # Get anime link from sera div or any anchor
                                     anime_link = None
                                     link_elem = sera_div.find('a', href=True) if sera_div else None
                                     if not link_elem:
@@ -104,36 +94,30 @@ def scrape_anime_data(search_query=None, limit=100):
                                     if link_elem:
                                         anime_link = link_elem['href']
                                     
-                                    # Get image URL from sera div
                                     image_url = None
                                     if sera_div:
                                         img_elem = sera_div.find('img')
                                         if img_elem and img_elem.get('src'):
                                             image_url = img_elem['src']
                                         else:
-                                            # Try to get background image from CSS
                                             style = sera_div.get('style', '')
                                             bg_match = re.search(r'background-image:\s*url\(["\']?([^"\')\s]+)["\']?\)', style)
                                             if bg_match:
                                                 image_url = bg_match.group(1)
                                     
-                                    # If still no image, try to find any image in the article
                                     if not image_url:
                                         img_elem = article.find('img')
                                         if img_elem and img_elem.get('src'):
                                             image_url = img_elem['src']
                                     
-                                    # Default placeholder if no image found
                                     if not image_url:
                                         image_url = "https://via.placeholder.com/150x200/4A90E2/FFFFFF?text=Anime"
                                     
-                                    # Get rating from span class="value" (as shown in first screenshot)
                                     rating_elem = article.find('span', class_='value')
                                     if not rating_elem:
                                         rating_elem = article.find('span', class_='rating')
                                     rating = rating_elem.get_text(strip=True) if rating_elem else "N/A"
                                     
-                                    # Get additional info
                                     type_elem = article.find('span', class_='type')
                                     anime_type = type_elem.get_text(strip=True) if type_elem else "TV"
                                     
@@ -160,15 +144,13 @@ def scrape_anime_data(search_query=None, limit=100):
                     print(f"   Could not find main.content on page {page}")
                     break
                 
-                # Check if we need to continue to next page
                 if len(anime_articles) < anime_per_page:
                     print(f"   Page {page} has fewer anime than expected, stopping...")
                     break
                 
                 page += 1
                 
-                # Safety check to prevent infinite loops
-                if page > 100:  # Max 100 pages
+                if page > 100: 
                     print(f"   Reached maximum page limit (100), stopping...")
                     break
                 
@@ -195,32 +177,26 @@ def get_anime_details(anime_url):
         
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Get main title
         title_elem = soup.find('h1', class_='entry-title')
         title = title_elem.get_text(strip=True) if title_elem else "Unknown Title"
         
-        # Get main image
         img_elem = soup.find('div', class_='anime-card_sidebar').find('img') if soup.find('div', class_='anime-card_sidebar') else None
         if not img_elem:
             img_elem = soup.find('img', class_='attachment-post-thumbnail')
         
         image_url = img_elem['src'] if img_elem and img_elem.get('src') else None
-        
-        # Get synopsis
+
         synopsis_elem = soup.find('div', class_='entry-content') or soup.find('div', class_='sinopsis')
         synopsis = synopsis_elem.get_text(strip=True) if synopsis_elem else "No synopsis available"
         
-        # Get rating from span class="value" (as shown in first screenshot)
         rating_elem = soup.find('span', class_='value')
         if not rating_elem:
             rating_elem = soup.find('span', class_='rating')
         rating = rating_elem.get_text(strip=True) if rating_elem else "N/A"
         
-        # Get anime type
         type_elem = soup.find('span', class_='type')
         anime_type = type_elem.get_text(strip=True) if type_elem else "TV"
         
-        # Get details from ul class="details-list" (as shown in second screenshot)
         details_list = soup.find('ul', class_='details-list')
         details = {}
         if details_list:
@@ -231,7 +207,6 @@ def get_anime_details(anime_url):
                     key, value = text.split(':', 1)
                     details[key.strip()] = value.strip()
         
-        # Get episodes list (as shown in third screenshot)
         episodes = []
         episode_list = soup.find('div', class_='episode-list-items')
         if episode_list:
@@ -263,13 +238,11 @@ def get_anime_details(anime_url):
 def search_anime():
     """API endpoint to search for anime"""
     query = request.args.get('q', '')
-    limit = int(request.args.get('limit', 100))  # Default to 100 anime
+    limit = int(request.args.get('limit', 100))
     
     if not query:
-        # If no query, return latest anime
         anime_list = scrape_anime_data(limit=limit)
     else:
-        # Search for specific anime
         anime_list = scrape_anime_data(query, limit=limit)
     
     return jsonify({
@@ -281,7 +254,6 @@ def search_anime():
 @app.route('/api/anime/<path:anime_url>', methods=['GET'])
 def get_anime(anime_url):
     """API endpoint to get specific anime details"""
-    # Decode the URL
     import urllib.parse
     decoded_url = urllib.parse.unquote(anime_url)
     
@@ -316,9 +288,9 @@ def index():
             }
             body {
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background: #181A20;
+                background: 181A20;
                 min-height: 100vh;
-                color: #f1f1f1;
+                color: f1f1f1;
             }
             .container {
                 max-width: 1200px;
@@ -328,7 +300,7 @@ def index():
             .header {
                 text-align: center;
                 margin-bottom: 40px;
-                color: #fff;
+                color: fff;
             }
             .header h1 {
                 font-size: 2.2rem;
@@ -337,7 +309,7 @@ def index():
                 letter-spacing: 1px;
             }
             .search-container {
-                background: #23242b;
+                background: 23242b;
                 padding: 30px;
                 border-radius: 15px;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.3);
@@ -351,20 +323,20 @@ def index():
             .search-input {
                 flex: 1;
                 padding: 15px;
-                border: 2px solid #23242b;
+                border: 2px solid 23242b;
                 border-radius: 10px;
                 font-size: 16px;
-                background: #23242b;
-                color: #f1f1f1;
+                background: 23242b;
+                color: f1f1f1;
                 transition: border-color 0.3s ease;
             }
             .search-input:focus {
                 outline: none;
-                border-color: #764ba2;
+                border-color: 764ba2;
             }
             .search-btn {
                 padding: 15px 30px;
-                background: linear-gradient(135deg, #764ba2 0%, #23242b 100%);
+                background: linear-gradient(135deg, 764ba2 0%, 23242b 100%);
                 color: white;
                 border: none;
                 border-radius: 10px;
@@ -374,13 +346,13 @@ def index():
             }
             .search-btn:hover {
                 transform: translateY(-2px);
-                background: linear-gradient(135deg, #23242b 0%, #764ba2 100%);
+                background: linear-gradient(135deg, 23242b 0%, 764ba2 100%);
             }
             .search-btn:active {
                 transform: translateY(0);
             }
             .results-container {
-                background: #23242b;
+                background: 23242b;
                 padding: 30px;
                 border-radius: 15px;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.3);
@@ -393,7 +365,7 @@ def index():
                 margin-top: 20px;
             }
             .anime-card {
-                background: #23242b;
+                background: 23242b;
                 border-radius: 10px;
                 overflow: hidden;
                 box-shadow: 0 5px 15px rgba(0,0,0,0.2);
@@ -408,7 +380,7 @@ def index():
                 width: 100%;
                 height: 250px;
                 object-fit: cover;
-                background: #181A20;
+                background: 181A20;
             }
             .anime-info {
                 padding: 15px;
@@ -417,7 +389,7 @@ def index():
                 font-size: 14px;
                 font-weight: 600;
                 margin-bottom: 8px;
-                color: #f1f1f1;
+                color: f1f1f1;
                 line-height: 1.3;
                 display: -webkit-box;
                 -webkit-line-clamp: 2;
@@ -426,27 +398,27 @@ def index():
             }
             .anime-rating {
                 font-size: 12px;
-                color: #ffd700;
-                background: #23242b;
+                color: ffd700;
+                background: 23242b;
                 padding: 4px 8px;
                 border-radius: 15px;
                 display: inline-block;
                 margin-right: 8px;
-                border: 1px solid #333;
+                border: 1px solid 333;
             }
             .anime-type {
                 font-size: 11px;
-                color: #aaa;
-                background: #181A20;
+                color: aaa;
+                background: 181A20;
                 padding: 3px 6px;
                 border-radius: 10px;
                 display: inline-block;
-                border: 1px solid #23242b;
+                border: 1px solid 23242b;
             }
             .loading, .no-results {
                 text-align: center;
                 padding: 40px;
-                color: #aaa;
+                color: aaa;
             }
             .modal {
                 display: none;
@@ -460,7 +432,7 @@ def index():
                 backdrop-filter: blur(5px);
             }
             .modal-content {
-                background-color: #23242b;
+                background-color: 23242b;
                 margin: 5% auto;
                 padding: 30px;
                 border-radius: 15px;
@@ -469,10 +441,10 @@ def index():
                 max-height: 80vh;
                 overflow-y: auto;
                 position: relative;
-                color: #f1f1f1;
+                color: f1f1f1;
             }
             .close {
-                color: #aaa;
+                color: aaa;
                 float: right;
                 font-size: 28px;
                 font-weight: bold;
@@ -482,7 +454,7 @@ def index():
                 top: 15px;
             }
             .close:hover {
-                color: #fff;
+                color: fff;
             }
             .modal-image {
                 width: 100%;
@@ -490,35 +462,35 @@ def index():
                 object-fit: cover;
                 border-radius: 10px;
                 margin-bottom: 20px;
-                background: #181A20;
+                background: 181A20;
             }
             .modal-title {
                 font-size: 1.5rem;
                 margin-bottom: 15px;
-                color: #fff;
+                color: fff;
             }
             .modal-synopsis {
-                color: #ccc;
+                color: ccc;
                 line-height: 1.6;
                 margin-bottom: 15px;
             }
             .modal-rating {
-                background: #181A20;
+                background: 181A20;
                 padding: 10px 15px;
                 border-radius: 10px;
-                color: #ffd700;
+                color: ffd700;
                 display: inline-block;
                 margin-bottom: 15px;
             }
             .modal-details {
-                background: #181A20;
+                background: 181A20;
                 padding: 15px;
                 border-radius: 10px;
                 margin-bottom: 15px;
             }
             .modal-details h3 {
                 margin-bottom: 10px;
-                color: #fff;
+                color: fff;
                 font-size: 1.1rem;
             }
             .modal-details ul {
@@ -527,7 +499,7 @@ def index():
             }
             .modal-details li {
                 padding: 5px 0;
-                border-bottom: 1px solid #23242b;
+                border-bottom: 1px solid 23242b;
             }
             .modal-details li:last-child {
                 border-bottom: none;
@@ -537,7 +509,7 @@ def index():
             }
             .modal-episodes h3 {
                 margin-bottom: 15px;
-                color: #fff;
+                color: fff;
                 font-size: 1.1rem;
             }
             .episodes-grid {
@@ -548,28 +520,28 @@ def index():
                 overflow-y: auto;
             }
             .episode-item {
-                background: #23242b;
+                background: 23242b;
                 padding: 10px;
                 border-radius: 8px;
                 text-align: center;
                 cursor: pointer;
                 transition: background-color 0.2s ease;
-                border: 1px solid #181A20;
+                border: 1px solid 181A20;
             }
             .episode-item:hover {
-                background: #181A20;
+                background: 181A20;
             }
             .episode-item a {
-                color: #f1f1f1;
+                color: f1f1f1;
                 text-decoration: none;
                 display: block;
             }
-            select#animeLimit {
+            selectanimeLimit {
                 padding: 5px;
-                border: 1px solid #23242b;
+                border: 1px solid 23242b;
                 border-radius: 5px;
-                background: #181A20;
-                color: #f1f1f1;
+                background: 181A20;
+                color: f1f1f1;
             }
             @media (max-width: 768px) {
                 .container {
@@ -604,7 +576,7 @@ def index():
                     <button class="search-btn" onclick="searchAnime()">🔍 Cari</button>
                 </div>
                 <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 15px;">
-                    <label for="animeLimit" style="color: #aaa; font-size: 14px; margin-right: 8px;">Jumlah Anime:</label>
+                    <label for="animeLimit" style="color: aaa; font-size: 14px; margin-right: 8px;">Jumlah Anime:</label>
                     <select id="animeLimit">
                         <option value="50">50</option>
                         <option value="100" selected>100</option>
@@ -704,7 +676,7 @@ def index():
                     return;
                 }
                 const resultsHTML = `
-                    <h2 style="margin-bottom: 20px; color: #fff; text-align: center;">${title}</h2>
+                    <h2 style="margin-bottom: 20px; color: fff; text-align: center;">${title}</h2>
                     <div class="anime-grid">
                         ${animeList.map(anime => `
                             <div class="anime-card" onclick="showAnimeDetails('${anime.link || ''}', '${anime.title}')">
@@ -733,7 +705,7 @@ def index():
             function showError(message) {
                 document.getElementById('resultsContent').innerHTML = `
                     <div class="no-results">
-                        <p style="color: #e74c3c;">${message}</p>
+                        <p style="color: e74c3c;">${message}</p>
                     </div>
                 `;
             }
@@ -801,3 +773,4 @@ if __name__ == '__main__':
     print("📱 Open your browser and go to: http://localhost:5000")
     print("🔍 Search for anime titles or leave empty to see latest anime")
     app.run(debug=True, host='0.0.0.0', port=5000)
+
